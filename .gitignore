@@ -1,0 +1,11 @@
+# Ignore Python virtual environments
+venv/
+.env/
+
+# Byte-compiled files
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# Ignore environment variable files
+.env
