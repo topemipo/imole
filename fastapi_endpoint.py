@@ -12,8 +12,8 @@ from query_db_functions import (
 # Load environment variables
 load_dotenv()
 openai_key = os.getenv("OPENAI_API_KEY")
-db_path = os.getenv("databasepath")
-folder_path = os.path.join(os.getenv("20casedocs"), "*.txt")
+db_path = os.getenv("DATABASE_PATH")
+folder_path = os.path.join(os.getenv("CASEDOCS_PATH"), "*.txt")
 
 # Initialize ChromaDB client
 db_client = chromadb.PersistentClient(path=db_path)

@@ -19,9 +19,9 @@ openai_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=openai_key)
 
 # ChromaDB connection
-db_path = os.getenv("databasepath")
+db_path = os.getenv("DATABASE_PATH")
 db_client = chromadb.PersistentClient(path=db_path)
-folder_path = os.path.join(os.getenv("20casedocs"), "*.txt")
+folder_path = os.path.join(os.getenv("CASEDOCS_PATH"), "*.txt")
 
 # Initialise session state for chat history if it doesn't exist yet
 if "chat_history" not in st.session_state:

@@ -79,7 +79,7 @@ def add_to_chroma_collection(chunked_texts, openai_key, collection_name="case-do
 
 def generate_data_store():
     """Main function to load, process, and store data."""
-    folder_path = os.path.join(os.getenv("20casedocs"), "*.txt")
+    folder_path = os.path.join(os.getenv("CASEDOCS_PATH"), "*.txt")
     all_texts = load_text_files(folder_path)
     chunked_texts = chunk_casedocs(all_texts)
     add_to_chroma_collection(chunked_texts, openai_key)

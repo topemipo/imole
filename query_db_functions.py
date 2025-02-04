@@ -17,9 +17,9 @@ openai_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=openai_key)
 
 # ChromaDB connection
-db_path = os.getenv("databasepath")
+db_path = os.getenv("DATABASE_PATH")
 db_client = chromadb.PersistentClient(path=db_path)
-folder_path = os.path.join(os.getenv("20casedocs"), "*.txt")
+folder_path = os.path.join(os.getenv("CASEDOCS_PATH"), "*.txt")
 
 def augment_query_generated(user_query, model="gpt-3.5-turbo"):
     """Generate an augmented query to improve retrieval."""
