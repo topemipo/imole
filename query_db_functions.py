@@ -35,7 +35,7 @@ def augment_query_generated(user_query, model="gpt-3.5-turbo"):
     )
     return response.choices[0].message.content
 
-def query_postgres_collection(query_text, n_results=5):
+def query_postgres_collection(query_text, n_results=1):
     """Retrieve relevant legal documents from PostgreSQL using pgvector similarity search."""
     
     # Generate embedding for the query
