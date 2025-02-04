@@ -1,41 +1,67 @@
-import requests
-import streamlit as st
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import os
+import chromadb
+from chromadb.utils import embedding_functions
+from dotenv import load_dotenv
+from query_db_functions import (
+    augment_query_generated, query_chroma_collection, get_file_contents,
+    summarize_text_with_map_reduce, generate_response
+)
 
-# 🚀 Replace with your actual FastAPI server URL
-API_URL = "http://159.65.63.69:8000/chat/"
+# Load environment variables
+load_dotenv()
+openai_key = os.getenv("OPENAI_API_KEY")
+db_path = os.getenv("DATABASE_PATH")
+folder_path = os.path.join(os.getenv("CASEDOCS_PATH"), "*.txt")
 
-# Streamlit UI Setup
-st.set_page_config(page_title="⚖️ Legal AI Chatbot", layout="wide")
-st.title("⚖️ Legal AI Chatbot")
-st.markdown("Ask any legal question and receive AI-generated responses based on legal case laws.")
+# Initialize ChromaDB client
+db_client = chromadb.PersistentClient(path=db_path)
+# Connect to ChromaDB
+embedding_function = embedding_functions.OpenAIEmbeddingFunction(
+    api_key=openai_key,
+    model_name="text-embedding-ada-002"
+)
 
-# Initialize session state for chat history
-if "chat_history" not in st.session_state:
-    st.session_state["chat_history"] = []
+legal_case_collection = db_client.get_collection(
+        name="case-docs-collection",
+        embedding_function=embedding_function
+    )
 
-# Display chat history
-for chat in st.session_state["chat_history"]:
-    with st.chat_message(chat["role"]):
-        st.markdown(chat["content"])
+# FastAPI App
+app = FastAPI()
 
-# User input field
-user_query = st.chat_input("Ask your legal question...")
+class QueryRequest(BaseModel):
+    user_query: str
 
-if user_query:
-    # Add user input to chat history
-    st.session_state["chat_history"].append({"role": "user", "content": user_query})
+@app.get("/")
+def root():
+    return {"message": "Legal AI Backend is running!"}
 
-    # 🔗 Send request to FastAPI backend
-    response = requests.post(API_URL, json={"user_query": user_query})
+@app.post("/chat/")
+def chat(request: QueryRequest):
+    """Handles user legal questions, augments query, retrieves case law, and generates AI response."""
+    try:
+        # Expand the query for better retrieval
+        augmented_query = augment_query_generated(request.user_query)
+        final_query = f"{request.user_query} {augmented_query}"
 
-    if response.status_code == 200:
-        ai_response = response.json().get("response", "⚠️ No response received.")
-    else:
-        ai_response = "⚠️ Error: Could not connect to the backend."
+        # Query ChromaDB for relevant legal documents
+        retrieved_chunks = query_chroma_collection(legal_case_collection, final_query, n_results=1)
 
-    # Add AI response to chat history
-    st.session_state["chat_history"].append({"role": "assistant", "content": ai_response})
+        if not retrieved_chunks:
+            ai_response = "⚠️ No relevant legal documents found. Consider consulting a lawyer."
+            return {"response": ai_response, "retrieved_case": None, "summary": None}
 
-    # Display AI response in chat format
-    with st.chat_message("assistant"):
-        st.markdown(ai_response)
+        # Retrieve and summarize the case document
+        case_doc = retrieved_chunks[0]["source"]
+        file_content = get_file_contents(folder_path, case_doc)
+        summary = summarize_text_with_map_reduce(file_content, max_length=1000)
+        
+        # Generate AI response
+        ai_response = generate_response(request.user_query, summary)
+
+        return {"response": ai_response}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
