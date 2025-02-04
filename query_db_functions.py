@@ -1,25 +1,24 @@
 import os
+import psycopg2
 import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
-import chromadb
-from chromadb.utils import embedding_functions
 import glob
 import re
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 from langchain.chains.summarize import load_summarize_chain
 from langchain_openai import ChatOpenAI
+import numpy as np
 
 # Load environment variables
 load_dotenv()
 openai_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=openai_key)
 
-# ChromaDB connection
-db_path = os.getenv("DATABASE_PATH")
-db_client = chromadb.PersistentClient(path=db_path)
+# database connection
 folder_path = os.path.join(os.getenv("CASEDOCS_PATH"), "*.txt")
+database_url = os.getenv("DATABASE_URL")
 
 def augment_query_generated(user_query, model="gpt-3.5-turbo"):
     """Generate an augmented query to improve retrieval."""
@@ -36,22 +35,38 @@ def augment_query_generated(user_query, model="gpt-3.5-turbo"):
     )
     return response.choices[0].message.content
 
-def query_chroma_collection(chroma_collection, query_text, n_results=1):
-    """Retrieve relevant legal documents from ChromaDB."""
-    embedding_function = embedding_functions.OpenAIEmbeddingFunction(
-        api_key=openai_key,
-        model_name="text-embedding-ada-002"
-    )
+def query_postgres_collection(query_text, n_results=5):
+    """Retrieve relevant legal documents from PostgreSQL using pgvector similarity search."""
     
-    query_embedding = embedding_function([query_text])[0]
-    results = chroma_collection.query(
-        query_embeddings=[query_embedding],
-        n_results=n_results,
-        include=["documents", "metadatas"]
+    # Generate embedding for the query
+    embedding_response = client.embeddings.create(
+        input=[query_text],
+        model="text-embedding-ada-002"
     )
+    query_embedding = embedding_response.data[0].embedding  # Extract embedding vector
+    query_embedding = np.array(query_embedding).tolist()  # Convert to JSON-compatible list
+
+    # Connect to PostgreSQL
+    conn = psycopg2.connect(database_url)
+    cur = conn.cursor()
+
+    # Perform similarity search using cosine distance with explicit vector casting
+    cur.execute("""
+        SELECT id, text, source, token_count,
+        1 - (embedding <=> %s::vector) AS similarity
+        FROM case_docs
+        ORDER BY embedding <=> %s::vector
+        LIMIT %s;
+    """, (query_embedding, query_embedding, n_results))
+
+    results = cur.fetchall()
     
-    if results["documents"]:
-        return results["metadatas"][0]  # Return retrieved metadata
+    # Close database connection
+    cur.close()
+    conn.close()
+
+    if results:
+        return [{"source": row[2], "text": row[1]} for row in results]  # Return relevant text data
     return []
 
 def get_file_contents(pattern, target_filename):
