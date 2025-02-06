@@ -49,7 +49,7 @@ def chat(request: QueryRequest):
 
         # Retrieve and summarize the case document
         case_doc = retrieved_chunks[0]["source"]
-        file_content = get_file_contents(folder_path, case_doc)
+        file_content = get_file_contents_from_spaces(case_doc)
         summary = summarize_text_with_map_reduce(file_content, max_length=1000)
         
         # Generate AI response
