@@ -10,6 +10,7 @@ from langchain.schema import Document
 from langchain.chains.summarize import load_summarize_chain
 from langchain_openai import ChatOpenAI
 import numpy as np
+import boto3
 
 # Load environment variables
 load_dotenv()
@@ -19,6 +20,11 @@ client = OpenAI(api_key=openai_key)
 # database connection
 folder_path = os.path.join(os.getenv("CASEDOCS_PATH"), "*.txt")
 database_url = os.getenv("DATABASE_URL")
+
+# Spaces credentials
+spaces_key = os.getenv("SPACES_ACCESS_KEY")
+spaces_secret = os.getenv("SPACES_SECRET_KEY")
+spaces_bucket = os.getenv("SPACES_BUCKET_NAME")
 
 def augment_query_generated(user_query, model="gpt-3.5-turbo"):
     """Generate an augmented query to improve retrieval."""
@@ -69,14 +75,25 @@ def query_postgres_collection(query_text, n_results=1):
         return [{"source": row[2], "text": row[1]} for row in results]  # Return relevant text data
     return []
 
-def get_file_contents(pattern, target_filename):
-    """Fetch the full text of a retrieved document."""
-    matching_files = glob.glob(pattern)
-    for fpath in matching_files:
-        if os.path.basename(fpath) == target_filename:
-            with open(fpath, 'r', encoding='utf-8') as file:
-                return file.read()
-    return "Document not found."
+def get_file_contents_from_spaces(file_name, folder_name="casedocs"):
+    """Retrieve file content from DigitalOcean Spaces inside a folder."""
+    # Initialize Spaces client
+    s3_client = boto3.client(
+        "s3",
+        region_name="lon1",
+        endpoint_url=f"https://lon1.digitaloceanspaces.com",
+        aws_access_key_id=spaces_key,
+        aws_secret_access_key=spaces_secret
+    )
+    s3_file_path = f"{folder_name}/{file_name}"  # Adjusted for folder structure
+    try:
+        obj = s3_client.get_object(Bucket=spaces_bucket, Key=s3_file_path)
+        content = obj['Body'].read().decode('utf-8')
+        return content
+    except s3_client.exceptions.NoSuchKey:
+        return "Document not found."
+    except Exception as e:
+        return f"Error retrieving document: {str(e)}"
 
 def summarize_text_with_map_reduce(file_content: str, max_length: int = 1000) -> str:
     """Summarize a document using LangChain's MapReduce summarization."""

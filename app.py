@@ -17,6 +17,11 @@ folder_path = os.path.join(os.getenv("CASEDOCS_PATH"), "*.txt")
 # PostgreSQL Connection String
 database_url = os.getenv("DATABASE_URL")
 
+# Spaces credentials
+spaces_key = os.getenv("SPACES_ACCESS_KEY")
+spaces_secret = os.getenv("SPACES_SECRET_KEY")
+spaces_bucket = os.getenv("SPACES_BUCKET_NAME")
+
 # FastAPI App
 app = FastAPI()
 
