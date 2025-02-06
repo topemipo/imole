@@ -4,7 +4,7 @@ import os
 import psycopg2
 from dotenv import load_dotenv
 from query_db_functions import (
-    augment_query_generated, query_postgres_collection, get_file_contents,
+    augment_query_generated, query_postgres_collection, get_file_contents_from_spaces,
     summarize_text_with_map_reduce, generate_response
 )
 
