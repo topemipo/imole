@@ -1,18 +1,20 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import os
-import psycopg2
 from dotenv import load_dotenv
+import re
+import json
+
 from query_db_functions import (
-    augment_query_generated, query_postgres_collection, get_file_contents_from_spaces,
-    summarize_text_with_map_reduce, generate_response
+    augment_query_generated, query_postgres_collection, get_file_contents_from_spaces, generate_response,
+    preprocess_and_count_tokens,summarize_case_document, summarize_long_document, summarization_pipeline
 )
 
 
 # Load environment variables
 load_dotenv()
 openai_key = os.getenv("OPENAI_API_KEY")
-folder_path = os.path.join(os.getenv("CASEDOCS_PATH"), "*.txt")
+anthropic_key = os.getenv("ANTHROPIC_KEY")
 
 # PostgreSQL Connection String
 database_url = os.getenv("DATABASE_URL")
@@ -50,8 +52,8 @@ def chat(request: QueryRequest):
         # Retrieve and summarize the case document
         case_doc = retrieved_chunks[0]["source"]
         file_content = get_file_contents_from_spaces(case_doc)
-        summary = summarize_text_with_map_reduce(file_content, max_length=1000)
-        
+        summary = summarization_pipeline(file_content)
+
         # Generate AI response
         ai_response = generate_response(request.user_query, summary)
 

@@ -9,3 +9,7 @@ __pycache__/
 
 # Ignore environment variable files
 .env
+
+# Ignore folders
+postgresql:/
+small_casedocs/
